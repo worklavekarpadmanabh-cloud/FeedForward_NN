@@ -1,0 +1,452 @@
+╔══════════════════════════════════════════════════════════════════════╗
+║                 CBOW PRACTICAL – COMPLETE GUIDE                    ║
+║          Code cells • Line-by-line explanation • Viva               ║
+╚══════════════════════════════════════════════════════════════════════╝
+
+HOW TO USE THIS GUIDE
+────────────────────
+Read each CELL in this order:
+  1. CODE  – the exact code to paste into one Jupyter Notebook cell.
+  2. WHAT IT DOES – what each line performs.
+  3. WHY WE USE IT – why that line is needed in the CBOW practical.
+
+NOTE: This practical uses a small, self-created dataset. The accuracy
+shown is TRAINING ACCURACY, not performance on unseen data.
+
+CBOW is a Word2Vec architecture that predicts a target word from its surrounding context words. This practical uses a small, self-created sentence dataset, creates context–target pairs, trains a neural network, predicts a word, evaluates training predictions, and plots loss and accuracy.
+Important: The dataset is intentionally small for learning. Results and predictions may vary because the same context can have more than one reasonable target word. The reported accuracy below is training accuracy, not accuracy on unseen test data.
+
+╭──────────────────────────────────────────────────────────────────────╮
+│ CELL 1 – IMPORT REQUIRED LIBRARIES                                   │
+╰──────────────────────────────────────────────────────────────────────╯
+
+  [ CODE TO PASTE ]
+    ····························································
+    import numpy as np
+    import tensorflow as tf
+    import matplotlib.pyplot as plt
+
+    from tensorflow.keras.models import Sequential
+    from tensorflow.keras.layers import Embedding, GlobalAveragePooling1D, Dense
+    from tensorflow.keras.preprocessing.text import Tokenizer
+
+  [ LINE-BY-LINE EXPLANATION ]
+  ····························································
+    import numpy as np
+      WHAT IT DOES  → Imports NumPy and gives it the short name np.
+      WHY WE USE IT → NumPy is used for arrays, numerical calculations, and counting correct predictions.
+
+    import tensorflow as tf
+      WHAT IT DOES  → Imports TensorFlow as tf.
+      WHY WE USE IT → TensorFlow provides the neural-network tools used to build and train the CBOW model.
+
+    import matplotlib.pyplot as plt
+      WHAT IT DOES  → Imports Matplotlib's plotting interface as plt.
+      WHY WE USE IT → We use it to draw the training loss and accuracy graphs.
+
+    from tensorflow.keras.models import Sequential
+      WHAT IT DOES  → Imports the Sequential model class.
+      WHY WE USE IT → Our network is a simple stack of layers arranged one after another.
+
+    from tensorflow.keras.layers import Embedding, GlobalAveragePooling1D, Dense
+      WHAT IT DOES  → Imports the three layers used in the CBOW architecture.
+      WHY WE USE IT → Embedding converts word IDs to vectors; pooling combines context vectors; Dense predicts a vocabulary word.
+
+    from tensorflow.keras.preprocessing.text import Tokenizer
+      WHAT IT DOES  → Imports the text Tokenizer.
+      WHY WE USE IT → It builds a vocabulary and converts words into integer IDs.
+
+╭──────────────────────────────────────────────────────────────────────╮
+│ CELL 2 – PREPARE THE TEXT DATASET                                    │
+╰──────────────────────────────────────────────────────────────────────╯
+
+  [ CODE TO PASTE ]
+    ····························································
+    sentences = [
+    "I love machine learning",
+    "I love deep learning",
+    "machine learning is interesting",
+    "deep learning is powerful",
+    "I enjoy artificial intelligence",
+    "machine learning is useful",
+    "deep learning is amazing",
+    "I study machine learning",
+    "artificial intelligence is interesting",
+    "I love artificial intelligence"
+    ]
+
+  [ LINE-BY-LINE EXPLANATION ]
+  ····························································
+sentences = [
+      WHAT IT DOES  → Starts a Python list containing the example sentences.
+      WHY WE USE IT → CBOW needs text examples from which it can learn context–target word relationships.
+
+Each quoted sentence
+      WHAT IT DOES  → Stores one short training sentence.
+      WHY WE USE IT → A small dataset makes the practical easy to understand and run without downloading a large corpus.
+
+]
+      WHAT IT DOES  → Closes the list.
+      WHY WE USE IT → Python needs the list to be closed before it can be used.
+
+╭──────────────────────────────────────────────────────────────────────╮
+│ CELL 3 – TOKENIZE THE SENTENCES                                      │
+╰──────────────────────────────────────────────────────────────────────╯
+
+  [ CODE TO PASTE ]
+    ····························································
+    tokenizer = Tokenizer()
+    tokenizer.fit_on_texts(sentences)
+    sequences = tokenizer.texts_to_sequences(sentences)
+    vocab_size = len(tokenizer.word_index) + 1
+
+  [ LINE-BY-LINE EXPLANATION ]
+  ····························································
+    tokenizer = Tokenizer()
+      WHAT IT DOES  → Creates a tokenizer object.
+      WHY WE USE IT → The tokenizer manages the mapping between words and integer IDs.
+
+    tokenizer.fit_on_texts(sentences)
+      WHAT IT DOES  → Scans the sentences and builds a vocabulary of unique words.
+      WHY WE USE IT → The model cannot directly process text strings; it needs numeric word IDs.
+
+    sequences = tokenizer.texts_to_sequences(sentences)
+      WHAT IT DOES  → Converts every sentence into a sequence of integer IDs.
+      WHY WE USE IT → These sequences are the numerical form of the text that will be used to create training examples.
+
+    vocab_size = len(tokenizer.word_index) + 1
+      WHAT IT DOES  → Counts the unique words and adds one extra index.
+      WHY WE USE IT → Index 0 is reserved for padding, so the embedding/output layers must allow for it.
+
+╭──────────────────────────────────────────────────────────────────────╮
+│ CELL 4 – GENERATE CONTEXT–TARGET TRAINING PAIRS                      │
+╰──────────────────────────────────────────────────────────────────────╯
+
+  [ CODE TO PASTE ]
+    ····························································
+    window_size = 1
+    X, y = [], []
+
+    for seq in sequences:
+    for i in range(len(seq)):
+    context = seq[max(0, i-window_size):i] + seq[i+1:i+window_size+1]
+    if context:
+    X.append(context)
+    y.append(seq[i])
+
+    X = tf.keras.utils.pad_sequences(
+    X, maxlen=2*window_size, padding='post'
+    )
+    y = np.array(y)
+
+  [ LINE-BY-LINE EXPLANATION ]
+  ····························································
+    window_size = 1
+      WHAT IT DOES  → Sets the context window to one word on each side of the target.
+      WHY WE USE IT → A small window keeps each training example simple: at most one left context word and one right context word.
+
+    X, y = [], []
+      WHAT IT DOES  → Creates two empty lists. X will store context words and y will store target words.
+      WHY WE USE IT → The model learns from input–answer pairs: context is the input and the middle word is the expected answer.
+
+    for seq in sequences:
+      WHAT IT DOES  → Loops through each tokenized sentence.
+      WHY WE USE IT → Every sentence contributes context–target examples.
+
+    for i in range(len(seq)):
+      WHAT IT DOES  → Visits every word position in the current sentence.
+      WHY WE USE IT → Each word is treated as a possible target once.
+
+    context = seq[max(0, i-window_size):i] + seq[i+1:i+window_size+1]
+      WHAT IT DOES  → Collects the word(s) before and after position i, then joins those two lists. The target at i is excluded.
+      WHY WE USE IT → CBOW predicts the target from its surrounding words. max(0, ...) prevents the left slice from starting at a negative position.
+
+    if context:
+      WHAT IT DOES  → Checks that at least one context word exists.
+      WHY WE USE IT → A word at the very beginning or end may have no context on one side; examples with no context at all cannot help predict a target.
+
+    X.append(context)
+      WHAT IT DOES  → Adds the context word IDs to the input list.
+      WHY WE USE IT → This becomes one training input for the model.
+
+    y.append(seq[i])
+      WHAT IT DOES  → Adds the current word ID as the target.
+      WHY WE USE IT → This is the correct word the model should learn to predict from the context.
+
+tf.keras.utils.pad_sequences(...)
+      WHAT IT DOES  → Pads or trims all context lists to the same length. With window_size=1, maxlen is 2; padding is added at the end.
+      WHY WE USE IT → Neural-network batches need inputs with a consistent shape. Zero is the padding ID.
+
+    y = np.array(y)
+      WHAT IT DOES  → Converts the target list into a NumPy array.
+      WHY WE USE IT → TensorFlow can use this array efficiently as the expected output labels.
+
+╭──────────────────────────────────────────────────────────────────────╮
+│ CELL 5 – BUILD THE CBOW NEURAL NETWORK                               │
+╰──────────────────────────────────────────────────────────────────────╯
+
+  [ CODE TO PASTE ]
+    ····························································
+    model = Sequential([
+    Embedding(vocab_size, 16, mask_zero=True),
+    GlobalAveragePooling1D(),
+    Dense(vocab_size, activation='softmax')
+    ])
+
+  [ LINE-BY-LINE EXPLANATION ]
+  ····························································
+    model = Sequential([...])
+      WHAT IT DOES  → Creates a neural network whose layers run in the order listed.
+      WHY WE USE IT → The CBOW architecture is a straightforward pipeline, so Sequential is suitable.
+
+Embedding(vocab_size, 16, mask_zero=True)
+      WHAT IT DOES  → Maps each word ID to a trainable vector of 16 numbers. It also marks ID 0 as padding.
+      WHY WE USE IT → Word IDs alone do not express useful numeric relationships. Embeddings give the model trainable word representations; masking prevents padding from affecting the average.
+
+GlobalAveragePooling1D()
+      WHAT IT DOES  → Averages the embeddings of the context words, dimension by dimension, to produce one vector.
+      WHY WE USE IT → CBOW combines the surrounding word vectors into one context representation. Averaging also makes the representation independent of context order.
+
+Dense(vocab_size, activation='softmax')
+      WHAT IT DOES  → Creates one output score/probability for each vocabulary index and applies Softmax.
+      WHY WE USE IT → The model must choose a target word from the vocabulary. Softmax turns scores into probabilities that sum to 1.
+
+╭──────────────────────────────────────────────────────────────────────╮
+│ CELL 6 – COMPILE THE MODEL                                           │
+╰──────────────────────────────────────────────────────────────────────╯
+
+  [ CODE TO PASTE ]
+    ····························································
+    model.compile(
+    optimizer='adam',
+    loss='sparse_categorical_crossentropy',
+    metrics=['accuracy']
+    )
+
+  [ LINE-BY-LINE EXPLANATION ]
+  ····························································
+    optimizer='adam'
+      WHAT IT DOES  → Selects the Adam optimization algorithm.
+      WHY WE USE IT → Adam adjusts the model's trainable weights to reduce prediction error.
+
+    loss='sparse_categorical_crossentropy'
+      WHAT IT DOES  → Uses sparse categorical cross-entropy as the loss function.
+      WHY WE USE IT → The target y values are integer word IDs, not one-hot vectors, so the sparse version is appropriate.
+
+    metrics=['accuracy']
+      WHAT IT DOES  → Asks Keras to report classification accuracy during training.
+      WHY WE USE IT → Accuracy makes it easier to see how often the predicted word matches the target word.
+
+╭──────────────────────────────────────────────────────────────────────╮
+│ CELL 7 – TRAIN THE MODEL                                             │
+╰──────────────────────────────────────────────────────────────────────╯
+
+  [ CODE TO PASTE ]
+    ····························································
+    history = model.fit(X, y, epochs=300, verbose=1)
+
+  [ LINE-BY-LINE EXPLANATION ]
+  ····························································
+model.fit(X, y, ...)
+      WHAT IT DOES  → Trains the model using context inputs X and target word IDs y.
+      WHY WE USE IT → The model learns the relationship between surrounding words and the target word.
+
+epochs=300
+      WHAT IT DOES  → Runs through the training examples 300 times.
+      WHY WE USE IT → Repeated passes give the model opportunities to adjust its weights. More epochs do not automatically guarantee better performance on new text.
+
+verbose=1
+      WHAT IT DOES  → Displays training progress in the notebook.
+      WHY WE USE IT → It lets you observe loss and accuracy while the model trains.
+
+    history = ...
+      WHAT IT DOES  → Stores the training history returned by Keras.
+      WHY WE USE IT → We use history later to plot loss and accuracy over epochs.
+
+╭──────────────────────────────────────────────────────────────────────╮
+│ CELL 8 – PREDICT A TARGET WORD                                       │
+╰──────────────────────────────────────────────────────────────────────╯
+
+  [ CODE TO PASTE ]
+    ····························································
+    context = ["I", "learning"]
+    test = tokenizer.texts_to_sequences([" ".join(context)])
+    test = tf.keras.utils.pad_sequences(test, maxlen=2, padding='post')
+
+    prediction = model.predict(test, verbose=0)
+    word_id = np.argmax(prediction)
+    print("\nContext Words:", context)
+    print("Predicted Target Word:",
+    tokenizer.index_word.get(word_id, "Unknown"))
+
+  [ LINE-BY-LINE EXPLANATION ]
+  ····························································
+    context = ["I", "learning"]
+      WHAT IT DOES  → Chooses two context words for the prediction example.
+      WHY WE USE IT → With window_size=1, a context can contain at most two positions: one on each side.
+
+" ".join(context)
+      WHAT IT DOES  → Joins the context words into one text string.
+      WHY WE USE IT → The tokenizer accepts text, so the context list is converted into a sentence-like string.
+
+tokenizer.texts_to_sequences(...)
+      WHAT IT DOES  → Converts the context words into the same integer IDs used during training.
+      WHY WE USE IT → Prediction input must use the same vocabulary mapping as training.
+
+pad_sequences(..., maxlen=2, padding='post')
+      WHAT IT DOES  → Makes the prediction input length two, adding zero if necessary.
+      WHY WE USE IT → The model expects the same input length used for training.
+
+model.predict(test, verbose=0)
+      WHAT IT DOES  → Gets the model's output probabilities for the context.
+      WHY WE USE IT → This is the model's prediction step; verbose=0 hides the progress display.
+
+np.argmax(prediction)
+      WHAT IT DOES  → Finds the index with the largest predicted probability.
+      WHY WE USE IT → The highest-probability vocabulary entry is selected as the predicted target word.
+
+tokenizer.index_word.get(word_id, "Unknown")
+      WHAT IT DOES  → Converts the predicted numeric ID back into a word; returns Unknown if the ID has no word mapping.
+      WHY WE USE IT → Humans can interpret the predicted word more easily than its integer ID.
+
+╭──────────────────────────────────────────────────────────────────────╮
+│ CELL 9 – EVALUATE TRAINING PREDICTIONS                               │
+╰──────────────────────────────────────────────────────────────────────╯
+
+  [ CODE TO PASTE ]
+    ····························································
+    predictions = model.predict(X, verbose=0)
+    predicted_words = np.argmax(predictions, axis=1)
+    correct = np.sum(predicted_words == y)
+    incorrect = len(y) - correct
+    accuracy = correct / len(y) * 100
+
+    print("\nCorrect Predictions:", correct)
+    print("Incorrect Predictions:", incorrect)
+    print("Training Accuracy:", round(accuracy, 2), "%")
+
+  [ LINE-BY-LINE EXPLANATION ]
+  ····························································
+model.predict(X, verbose=0)
+      WHAT IT DOES  → Predicts a word for every context in the training input X.
+      WHY WE USE IT → We need predictions to compare them with the known target IDs.
+
+np.argmax(predictions, axis=1)
+      WHAT IT DOES  → Selects the highest-probability word index for each training example.
+      WHY WE USE IT → Each row contains probabilities for the vocabulary; axis=1 selects one predicted class per row.
+
+    predicted_words == y
+      WHAT IT DOES  → Compares each predicted word ID with its correct target ID.
+      WHY WE USE IT → A match means that training example was predicted correctly.
+
+np.sum(...)
+      WHAT IT DOES  → Counts the True values in the comparison.
+      WHY WE USE IT → This gives the number of correct predictions.
+
+    incorrect = len(y) - correct
+      WHAT IT DOES  → Subtracts correct predictions from the total number of examples.
+      WHY WE USE IT → This gives the number of incorrect predictions.
+
+    accuracy = correct / len(y) * 100
+      WHAT IT DOES  → Calculates the percentage of correct predictions.
+      WHY WE USE IT → Accuracy summarizes the proportion of context–target pairs predicted correctly.
+
+round(accuracy, 2)
+      WHAT IT DOES  → Rounds the displayed accuracy to two decimal places.
+      WHY WE USE IT → It makes the result easier to read.
+
+╭──────────────────────────────────────────────────────────────────────╮
+│ CELL 10 – VISUALIZE LOSS AND ACCURACY                                │
+╰──────────────────────────────────────────────────────────────────────╯
+
+  [ CODE TO PASTE ]
+    ····························································
+    plt.figure(figsize=(10, 4))
+
+    plt.subplot(1, 2, 1)
+    plt.plot(history.history['loss'])
+    plt.title("Training Loss")
+    plt.xlabel("Epochs")
+    plt.ylabel("Loss")
+
+    plt.subplot(1, 2, 2)
+    plt.plot(history.history['accuracy'])
+    plt.title("Training Accuracy")
+    plt.xlabel("Epochs")
+    plt.ylabel("Accuracy")
+
+    plt.tight_layout()
+    plt.show()
+
+  [ LINE-BY-LINE EXPLANATION ]
+  ····························································
+    plt.figure(figsize=(10, 4))
+      WHAT IT DOES  → Creates a figure that is 10 inches wide and 4 inches high.
+      WHY WE USE IT → A wider figure gives room for two graphs side by side.
+
+    plt.subplot(1, 2, 1)
+      WHAT IT DOES  → Selects the first plot area in a layout of one row and two columns.
+      WHY WE USE IT → The first graph will show training loss.
+
+    plt.plot(history.history['loss'])
+      WHAT IT DOES  → Plots the loss recorded after each epoch.
+      WHY WE USE IT → It helps us see whether the model's error is decreasing during training.
+
+    plt.title(...), plt.xlabel(...), plt.ylabel(...)
+      WHAT IT DOES  → Adds the graph title and axis labels.
+      WHY WE USE IT → Labels make the graph understandable.
+
+    plt.subplot(1, 2, 2)
+      WHAT IT DOES  → Selects the second plot area.
+      WHY WE USE IT → The second graph will show training accuracy.
+
+    plt.plot(history.history['accuracy'])
+      WHAT IT DOES  → Plots training accuracy across epochs.
+      WHY WE USE IT → It shows how often the model predicts the training target correctly as training progresses.
+
+    plt.tight_layout()
+      WHAT IT DOES  → Adjusts spacing between the two plots.
+      WHY WE USE IT → It prevents titles and labels from overlapping.
+
+    plt.show()
+      WHAT IT DOES  → Displays the completed graphs.
+      WHY WE USE IT → Without it, the graphs may not be displayed in some Python environments.
+
+╔══════════════════════════════════════════════════════════════════════╗
+║ IMPORTANT FORMULAS FOR VIVA                                          ║
+╚══════════════════════════════════════════════════════════════════════╝
+
+  FORMULA  • Average context vector: h = (1/C) × Σ E(wⱼ)
+Averages the embedding vectors of the C context words.
+  FORMULA  • Softmax probability: P(wᵢ) = exp(zᵢ) / Σⱼ exp(zⱼ)
+Converts output scores into probabilities across the vocabulary.
+  FORMULA  • Predicted word: argmaxᵢ P(wᵢ)
+Selects the word with the highest probability.
+  FORMULA  • Sparse cross-entropy loss: L = −log(Pcorrect)
+Penalizes the model when the correct target word receives a low probability.
+  FORMULA  • Accuracy: Accuracy = (Correct predictions / Total predictions) × 100
+Measures the percentage of predictions that match the target IDs.
+  FORMULA  • General weight update: Wnew = Wold − α × (∂L/∂W)
+Shows the basic gradient-descent update idea; Adam uses an adaptive update rule.
+
+╔══════════════════════════════════════════════════════════════════════╗
+║ IMPORTANT PRACTICAL NOTES                                            ║
+╚══════════════════════════════════════════════════════════════════════╝
+
+The training examples are context–target pairs. X contains context word IDs and y contains the target word ID.
+
+For window_size = 1, each context has at most two positions: one word to the left and one to the right.
+The Embedding dimension is 16 in this code. It is a chosen hyperparameter, not a fixed CBOW rule.
+
+Padding index 0 is not a real vocabulary word. mask_zero=True tells the Embedding layer to mask it.
+
+Training accuracy is calculated on the same examples used to train the model. It is not test accuracy and does not prove that the model generalizes to unseen sentences.
+Because this is a very small synthetic dataset, predictions may vary and may not represent reliable general language understanding.
+
+The final output can differ between runs because model weights are initialized and trained numerically.
+
+╔══════════════════════════════════════════════════════════════════════╗
+║ SHORT VIVA EXPLANATION OF THE COMPLETE MODEL                         ║
+╚══════════════════════════════════════════════════════════════════════╝
+
+First, we tokenize the sentences and convert words into integer IDs. Next, we generate context–target pairs using a sliding window. The Embedding layer converts context word IDs into trainable vectors. GlobalAveragePooling1D averages those vectors into one context representation. The Dense layer with Softmax predicts probabilities for the vocabulary words. We train the model using Adam and sparse categorical cross-entropy, then select the highest-probability word using argmax. Finally, we calculate training accuracy and plot loss and accuracy.

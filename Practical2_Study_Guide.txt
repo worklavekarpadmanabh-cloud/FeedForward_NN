@@ -1,0 +1,947 @@
+================================================================================
+PRACTICAL 2 — FEED-FORWARD NEURAL NETWORK Keras + TensorFlow | MNIST
+Digit Classification
+================================================================================
+
+STUDY GUIDE
+
+This guide follows the practical code in CELL order. Each cell includes:
+• WHAT IT IS — what the statement or function does • WHY WE USE IT — why
+it is needed in this practical • KEY IDEAS — concepts and formulas to
+understand for the viva
+
+PRACTICAL REQUIREMENTS
+
+(a) Import necessary packages
+(b) Load training and testing data
+(c) Define the network architecture using Keras
+(d) Train the model using SGD
+(e) Evaluate the network
+(f) Plot training loss and accuracy
+
+Dataset: MNIST handwritten digits (0 to 9) Image size: 28 × 28 pixels
+Number of training images: 60,000 Number of test images: 10,000
+
+================================================================================
+CELL 1 — IMPORT NECESSARY PACKAGES
+================================================================================
+
+CODE
+
+import tensorflow as tf import numpy as np import matplotlib.pyplot as
+plt from sklearn.metrics import confusion_matrix, classification_report
+from tensorflow.keras.models import Sequential from
+tensorflow.keras.layers import Dense
+
+LINE-BY-LINE EXPLANATION
+
+1.  import tensorflow as tf
+
+    WHAT: Imports TensorFlow, a machine-learning and deep-learning
+    library. The short name “tf” is an alias for “tensorflow”.
+
+    WHY: We use TensorFlow/Keras to load MNIST, define the neural
+    network, configure the optimizer, train the model and evaluate it.
+
+    EXAMPLE: tf.keras.datasets.mnist.load_data()
+
+2.  import numpy as np
+
+    WHAT: Imports NumPy, a library for numerical operations and array
+    handling. “np” is its commonly used alias.
+
+    WHY: We use np.argmax() to convert the model’s ten output scores
+    into the index of the class with the highest score.
+
+    EXAMPLE: predicted_digit = np.argmax(prediction)
+
+3.  import matplotlib.pyplot as plt
+
+    WHAT: Imports Matplotlib’s pyplot module. “plt” is its alias.
+
+    WHY: We use it to draw the training-loss, validation-loss,
+    training-accuracy and validation-accuracy graphs.
+
+    EXAMPLE: plt.plot(history.history[‘loss’]) plt.show()
+
+4.  from sklearn.metrics import confusion_matrix, classification_report
+
+    WHAT: Imports two evaluation functions from Scikit-learn.
+
+    WHY: confusion_matrix() compares actual classes with predicted
+    classes. classification_report() calculates precision, recall,
+    F1-score and support for each class.
+
+    EXAMPLE: confusion_matrix(y_test, predictions)
+    classification_report(y_test, predictions)
+
+5.  from tensorflow.keras.models import Sequential
+
+    WHAT: Imports the Sequential model-building class from Keras.
+
+    WHY: Sequential lets us arrange neural-network layers one after
+    another. Our network has an input, a hidden Dense layer and an
+    output Dense layer.
+
+6.  from tensorflow.keras.layers import Dense
+
+    WHAT: Imports the Dense layer.
+
+    WHY: Dense creates a fully connected layer: each neuron is connected
+    to every output from the previous layer.
+
+QUICK REVISION
+
+TensorFlow/Keras : Build and train the neural network. NumPy : Numerical
+and array operations. Matplotlib : Draw graphs. Scikit-learn :
+Additional classification evaluation. Sequential : Arrange layers in
+sequence. Dense : Create fully connected layers.
+
+================================================================================
+CELL 2 — LOAD THE MNIST TRAINING AND TESTING DATA
+================================================================================
+
+CODE
+
+(X_train, y_train), (X_test, y_test) =
+tf.keras.datasets.mnist.load_data()
+
+print(“Training data:”, X_train.shape) print(“Testing data:”,
+X_test.shape)
+
+LINE-BY-LINE EXPLANATION
+
+1.  tf.keras.datasets.mnist.load_data()
+
+    WHAT: Loads the MNIST handwritten-digit dataset using Keras.
+
+    WHY: It gives us ready-made training and testing data. The first run
+    downloads the dataset if it is not already cached on the computer.
+
+2.  (X_train, y_train), (X_test, y_test)
+
+    The function returns two pairs:
+
+    X_train = training images y_train = correct labels for the training
+    images X_test = test images y_test = correct labels for the test
+    images
+
+    “X” conventionally represents input features. “y” conventionally
+    represents target labels.
+
+3.  print(…)
+
+    Displays the dimensions (shape) of the arrays so we can check that
+    the dataset loaded correctly.
+
+EXPECTED SHAPES
+
+X_train.shape = (60000, 28, 28) y_train.shape = (60000,) X_test.shape =
+(10000, 28, 28) y_test.shape = (10000,)
+
+Meaning: 60,000 training images and 10,000 test images. Each image has
+28 rows and 28 columns of pixels.
+
+MNIST LABELS
+
+Each label is an integer from 0 to 9: 0, 1, 2, 3, 4, 5, 6, 7, 8, 9.
+
+The label is the correct digit shown in the corresponding image.
+
+================================================================================
+CELL 3 — NORMALIZE THE PIXEL VALUES
+================================================================================
+
+CODE
+
+X_train = X_train / 255.0 X_test = X_test / 255.0
+
+LINE-BY-LINE EXPLANATION
+
+1.  X_train = X_train / 255.0
+
+    WHAT: Divides every training-image pixel value by 255.
+
+2.  X_test = X_test / 255.0
+
+    WHAT: Performs the same normalization on the test images.
+
+WHY: MNIST grayscale pixel values are integers from 0 to 255. Dividing
+by 255 converts them to a range from 0 to 1.
+
+FORMULA
+
+                 Normalized pixel = Original pixel / 255
+
+EXAMPLES
+
+Original pixel Normalized pixel 0 -> 0.0 127 -> 0.498 (approximately)
+255 -> 1.0
+
+WHY NORMALIZE?
+
+• Puts input values on a small, consistent scale. • Helps neural-network
+training behave more smoothly. • Avoids feeding unnecessarily large
+pixel values into the network.
+
+IMPORTANT: We normalize X (the images), not y (the digit labels). The
+labels must remain integers 0 to 9 for sparse categorical crossentropy.
+
+================================================================================
+CELL 4 — FLATTEN THE IMAGES
+================================================================================
+
+CODE
+
+X_train = X_train.reshape(-1, 784) X_test = X_test.reshape(-1, 784)
+
+LINE-BY-LINE EXPLANATION
+
+1.  X_train.reshape(-1, 784)
+
+    WHAT: Changes each training image from a 28 × 28 matrix into a
+    one-dimensional vector containing 784 pixel values.
+
+2.  X_test.reshape(-1, 784)
+
+    WHAT: Performs the same reshaping for the test images.
+
+WHY: A Dense feed-forward layer receives a feature vector for each
+sample. The original MNIST image is 28 × 28, but our network expects 784
+features per image.
+
+MATHEMATICS
+
+28 × 28 = 784
+
+Before flattening: X_train shape = (60000, 28, 28) X_test shape =
+(10000, 28, 28)
+
+After flattening: X_train shape = (60000, 784) X_test shape = (10000,
+784)
+
+WHAT DOES -1 MEAN?
+
+-1 tells NumPy to calculate that dimension automatically.
+
+For example: 60,000 images remain 60,000 rows. Each row contains 784
+features.
+
+IMPORTANT: Flattening changes the shape of the data. It does not change
+the pixel values or the digit labels.
+
+================================================================================
+CELL 5 — DEFINE THE FEED-FORWARD NEURAL NETWORK
+================================================================================
+
+CODE
+
+model = Sequential([ tf.keras.Input(shape=(784,)), Dense(128,
+activation=‘relu’), Dense(10, activation=‘softmax’)])
+
+model.summary()
+
+LINE-BY-LINE EXPLANATION
+
+1.  model = Sequential([ … ])
+
+    WHAT: Creates a Keras Sequential model and stores it in the variable
+    model.
+
+    WHY: Our network is a simple sequence of layers. Data moves from the
+    input through the hidden layer and then to the output layer.
+
+2.  tf.keras.Input(shape=(784,))
+
+    WHAT: Declares the shape of one input sample.
+
+    WHY: Each flattened MNIST image contains 784 pixel features.
+
+    IMPORTANT: shape=(784,) means one one-dimensional sample containing
+    784 values. The comma indicates a one-element Python tuple.
+
+3.  Dense(128, activation=‘relu’)
+
+    WHAT: Creates a fully connected hidden layer with 128 neurons. ReLU
+    is the activation function used by this layer.
+
+    WHY 128? It is the chosen number of hidden neurons for this network.
+    These neurons learn useful patterns from the pixel inputs.
+
+    WHAT IS RELU? ReLU means Rectified Linear Unit.
+
+    FORMULA: f(x) = max(0, x)
+
+    EXAMPLES: Input x ReLU output -4 0 0 0 3 3
+
+    WHY USE RELU? It introduces non-linearity, allowing the network to
+    learn patterns more complex than a simple linear transformation.
+
+4.  Dense(10, activation=‘softmax’)
+
+    WHAT: Creates the output layer with 10 neurons and Softmax
+    activation.
+
+    WHY 10? MNIST has ten possible digit classes: 0, 1, 2, 3, 4, 5, 6,
+    7, 8, 9. Each output neuron corresponds to one digit class.
+
+    WHAT IS SOFTMAX? Softmax converts the output scores (logits) into
+    values that form a probability distribution across the ten classes.
+
+    FORMULA: exp(z_i) softmax(z_i) = ————————- sum over j of exp(z_j)
+
+    Here: z_i = score for class i. exp() = exponential function. The
+    denominator is the sum of exponentials for all classes.
+
+    IMPORTANT: The ten Softmax outputs add up to 1 (apart from tiny
+    rounding differences). The class with the largest output is the
+    prediction.
+
+5.  model.summary()
+
+    WHAT: Prints a summary of the model.
+
+    WHY: It shows the layers, output shapes and number of parameters. It
+    helps us verify that the architecture was created correctly.
+
+NETWORK ARCHITECTURE
+
+Input features Hidden layer Output layer 784 —–> 128 —–> 10 ReLU Softmax
+
+In short: 784 -> 128 -> 10
+
+NUMBER OF TRAINABLE PARAMETERS
+
+For a Dense layer:
+
+Parameters = (number of inputs × number of neurons) + biases
+
+First Dense layer: (784 × 128) + 128 = 100,480
+
+Output Dense layer: (128 × 10) + 10 = 1,290
+
+Total: 100,480 + 1,290 = 101,770 trainable parameters.
+
+WHY ARE THERE BIASES?
+
+A bias is an additional trainable value for each neuron. It lets the
+neuron shift its activation rather than relying only on its weighted
+inputs.
+
+================================================================================
+CELL 6 — COMPILE THE MODEL
+================================================================================
+
+CODE
+
+model.compile( optimizer=tf.keras.optimizers.SGD(learning_rate=0.01),
+loss=‘sparse_categorical_crossentropy’, metrics=[‘accuracy’] )
+
+LINE-BY-LINE EXPLANATION
+
+1.  model.compile(…)
+
+    WHAT: Configures the model before training.
+
+    WHY: Keras needs to know how to update the weights, how to calculate
+    prediction error and which performance metric to report.
+
+2.  optimizer=tf.keras.optimizers.SGD(learning_rate=0.01)
+
+    WHAT: Selects Stochastic Gradient Descent (SGD) as the optimizer.
+
+    WHY: The optimizer updates the network’s trainable weights and
+    biases to reduce the loss.
+
+    LEARNING RATE: learning_rate=0.01 sets the step-size factor to 0.01.
+
+    A simplified gradient-descent update formula is:
+
+                   w_new = w_old - alpha × (dL/dw)
+
+    w_old = current weight w_new = updated weight alpha = learning rate
+    L = loss dL/dw = gradient of loss with respect to the weight
+
+    SGD uses gradients calculated from mini-batches of training data. In
+    this practical, batch_size=32 is set in model.fit().
+
+3.  loss=‘sparse_categorical_crossentropy’
+
+    WHAT: Selects the loss function used for this multi-class
+    classification task.
+
+    WHY SPARSE? Our labels are integer class IDs such as 0, 1, 2, …, 9.
+    They are not one-hot encoded vectors.
+
+    WHY CATEGORICAL CROSSENTROPY? Each image belongs to one of ten
+    possible classes, and the model produces a probability distribution
+    using Softmax.
+
+    FORMULA (for one example): L = -ln(p_correct)
+
+    p_correct = predicted Softmax probability assigned to the true
+    class.
+
+    The loss becomes smaller when the model assigns a higher probability
+    to the correct digit.
+
+4.  metrics=[‘accuracy’]
+
+    WHAT: Asks Keras to report classification accuracy during training
+    and evaluation.
+
+    FORMULA: Correct predictions Accuracy = ——————————– × 100 Total
+    predictions
+
+    Example: 950 correct predictions out of 1,000:
+
+    Accuracy = (950 / 1000) × 100 = 95%
+
+IMPORTANT DIFFERENCE
+
+Optimizer : Updates weights and biases. Loss : Measures prediction
+error. Metric : Reports model performance.
+
+================================================================================
+CELL 7 — TRAIN THE MODEL
+================================================================================
+
+CODE
+
+history = model.fit( X_train, y_train, epochs=5, batch_size=32,
+validation_data=(X_test, y_test) )
+
+LINE-BY-LINE EXPLANATION
+
+1.  history = model.fit(…)
+
+    WHAT: Starts training the neural network and stores the returned
+    History object in the variable history.
+
+    WHY: Training allows the network to learn patterns by adjusting its
+    trainable weights and biases.
+
+2.  X_train, y_train
+
+    X_train contains the training images. y_train contains the correct
+    digit labels for those images.
+
+    The model uses these pairs to learn the relationship between image
+    pixels and digit classes.
+
+3.  epochs=5
+
+    WHAT: Sets the number of training epochs to five.
+
+    WHAT IS AN EPOCH? One complete pass through the entire training
+    dataset.
+
+    With 60,000 training images and five epochs, the model processes the
+    training set five times.
+
+4.  batch_size=32
+
+    WHAT: Sets the number of training samples in each mini-batch to 32.
+
+    WHY: The optimizer processes a batch, calculates gradients and
+    updates the weights, then moves to the next batch.
+
+    APPROXIMATE BATCHES PER EPOCH: 60,000 / 32 = 1,875 batches per
+    epoch.
+
+    Since 60,000 is divisible by 32? No. Keras uses 1,875 full batches
+    plus a final partial batch when the remainder is retained: 1,874
+    full batches and 32? Check the arithmetic: 32 × 1,875 = 60,000, so
+    there are exactly 1,875 full batches.
+
+5.  validation_data=(X_test, y_test)
+
+    WHAT: Supplies images and labels on which Keras calculates
+    validation loss and validation accuracy after each epoch.
+
+    WHY: It lets us monitor performance on data that is not used to
+    update the model’s weights during that epoch.
+
+    IMPORTANT EXPERIMENTAL NOTE: In this exact code, the MNIST test set
+    is also used as validation data and then used again in
+    model.evaluate(). For a more rigorous experiment, set aside a
+    separate validation set from the training data and reserve the test
+    set for the final evaluation.
+
+WHAT IS STORED IN history?
+
+history.history is a dictionary containing values recorded during
+training, including:
+
+history.history[‘loss’] Training loss per epoch
+history.history[‘val_loss’] Validation loss per epoch
+history.history[‘accuracy’] Training accuracy per epoch
+history.history[‘val_accuracy’] Validation accuracy per epoch
+
+================================================================================
+CELL 8 — EVALUATE THE NETWORK
+================================================================================
+
+CODE
+
+loss, accuracy = model.evaluate(X_test, y_test)
+
+print(“Test Loss:”, loss) print(“Test Accuracy:”, accuracy * 100, “%”)
+
+LINE-BY-LINE EXPLANATION
+
+1.  model.evaluate(X_test, y_test)
+
+    WHAT: Evaluates the trained model using the supplied test images and
+    their correct labels.
+
+    WHY: It calculates the loss and the accuracy on this dataset.
+
+2.  loss, accuracy = …
+
+    WHAT: Stores the returned test loss in loss and test accuracy in
+    accuracy.
+
+    WHY: We want to display and interpret both evaluation results.
+
+3.  print(“Test Loss:”, loss)
+
+    Displays the calculated test loss.
+
+4.  print(“Test Accuracy:”, accuracy * 100, “%”)
+
+    Keras accuracy is returned as a fraction from 0 to 1. Multiplying by
+    100 converts it to a percentage.
+
+    Example: 0.935 × 100 = 93.5%
+
+IMPORTANT: Evaluation measures performance. It does not perform another
+round of weight training.
+
+================================================================================
+CELL 9 — PREDICT THE TEST DATA AND PRINT THE CONFUSION MATRIX
+================================================================================
+
+CODE
+
+predictions = model.predict(X_test) predictions = np.argmax(predictions,
+axis=1)
+
+print(“Confusion Matrix:”) print(confusion_matrix(y_test, predictions))
+
+print(“Classification Report:”) print(classification_report(y_test,
+predictions))
+
+LINE-BY-LINE EXPLANATION
+
+1.  predictions = model.predict(X_test)
+
+    WHAT: Gets the model’s output for every test image.
+
+    SHAPE: For 10,000 images and 10 output classes, the prediction array
+    normally has shape (10000, 10).
+
+    Each row contains ten Softmax probabilities, one for each digit.
+
+2.  predictions = np.argmax(predictions, axis=1)
+
+    WHAT: Finds the index of the largest value in each row.
+
+    WHY: The largest Softmax probability represents the model’s selected
+    digit class.
+
+    axis=1 means perform the operation across each row.
+
+    EXAMPLE: Probabilities = [0.01, 0.02, 0.90, 0.01, …]
+
+    np.argmax(…) = 2
+
+    Therefore, the predicted digit is 2.
+
+3.  confusion_matrix(y_test, predictions)
+
+    WHAT: Compares the actual labels with the predicted labels.
+
+    WHY: It shows which classes are classified correctly and which
+    classes are confused with other classes.
+
+    HOW TO READ: Rows = Actual classes Columns = Predicted classes
+
+    Diagonal values = Correct predictions Off-diagonal values =
+    Incorrect predictions
+
+    For MNIST, the matrix has 10 rows and 10 columns.
+
+4.  classification_report(y_test, predictions)
+
+    WHAT: Prints precision, recall, F1-score and support for each class.
+
+    PRECISION: Of all samples predicted as a particular class, how many
+    were actually that class?
+
+                          TP
+
+    Precision = ——————– TP + FP
+
+    RECALL: Of all actual samples belonging to a class, how many did the
+    model correctly identify?
+
+                          TP
+
+    Recall = ——————– TP + FN
+
+    F1-SCORE: Harmonic mean of precision and recall.
+
+                          2 × Precision × Recall
+
+    F1-score = —————————————– Precision + Recall
+
+    SUPPORT: Number of actual samples belonging to that class.
+
+    TP = True Positive FP = False Positive FN = False Negative
+
+IMPORTANT: Scikit-learn is used here for additional evaluation.
+TensorFlow/Keras still builds and trains the neural network.
+
+================================================================================
+CELL 10 — PLOT TRAINING AND VALIDATION LOSS
+================================================================================
+
+CODE
+
+plt.plot(history.history[‘loss’], label=‘Training Loss’)
+plt.plot(history.history[‘val_loss’], label=‘Validation Loss’)
+
+plt.title(“Training and Validation Loss”) plt.xlabel(“Epochs”)
+plt.ylabel(“Loss”) plt.legend() plt.show()
+
+LINE-BY-LINE EXPLANATION
+
+1.  plt.plot(history.history[‘loss’], label=‘Training Loss’)
+
+    WHAT: Draws the training-loss values recorded after each epoch.
+
+    WHY: It helps us see whether the model’s error on training data is
+    decreasing as training progresses.
+
+2.  plt.plot(history.history[‘val_loss’], label=‘Validation Loss’)
+
+    WHAT: Draws the validation-loss values on the same graph.
+
+    WHY: It helps us compare training performance with performance on
+    validation data.
+
+3.  plt.title(“Training and Validation Loss”)
+
+    Sets the title displayed at the top of the graph.
+
+4.  plt.xlabel(“Epochs”)
+
+    Labels the horizontal (X) axis as Epochs.
+
+5.  plt.ylabel(“Loss”)
+
+    Labels the vertical (Y) axis as Loss.
+
+6.  plt.legend()
+
+    Displays the line labels so we can identify the training-loss line
+    and validation-loss line.
+
+7.  plt.show()
+
+    Displays the completed graph.
+
+HOW TO INTERPRET THE GRAPH
+
+Generally, decreasing training and validation loss indicates that the
+model is learning.
+
+If training loss keeps decreasing but validation loss starts increasing,
+the model may be overfitting.
+
+Loss is not the same as accuracy: Loss measures prediction error;
+accuracy measures the proportion of correct class predictions.
+
+================================================================================
+CELL 11 — PLOT TRAINING AND VALIDATION ACCURACY
+================================================================================
+
+CODE
+
+plt.plot(history.history[‘accuracy’], label=‘Training Accuracy’)
+plt.plot(history.history[‘val_accuracy’], label=‘Validation Accuracy’)
+
+plt.title(“Training and Validation Accuracy”) plt.xlabel(“Epochs”)
+plt.ylabel(“Accuracy”) plt.legend() plt.show()
+
+LINE-BY-LINE EXPLANATION
+
+1.  plt.plot(history.history[‘accuracy’], label=‘Training Accuracy’)
+
+    Draws the training accuracy recorded after each epoch.
+
+2.  plt.plot(history.history[‘val_accuracy’], label=‘Validation
+    Accuracy’)
+
+    Draws the validation accuracy recorded after each epoch.
+
+3.  plt.title(“Training and Validation Accuracy”)
+
+    Sets the graph title.
+
+4.  plt.xlabel(“Epochs”)
+
+    Labels the horizontal axis.
+
+5.  plt.ylabel(“Accuracy”)
+
+    Labels the vertical axis.
+
+6.  plt.legend()
+
+    Identifies the training-accuracy and validation-accuracy lines.
+
+7.  plt.show()
+
+    Displays the accuracy graph.
+
+HOW TO INTERPRET THE GRAPH
+
+Generally, increasing training and validation accuracy indicates that
+the model is learning to classify more images correctly.
+
+A large gap between training and validation accuracy may indicate
+overfitting.
+
+HOW TO READ THE ACCURACY GRAPH
+
+Your graph has two lines: Training Accuracy = Accuracy on training
+images. Validation Accuracy = Accuracy on validation images.
+
+The X-axis shows epochs. The Y-axis shows accuracy (usually from 0 to
+1).
+
+DESIRABLE PATTERN: Training and validation accuracy generally increase
+as training progresses. This means the model is classifying more samples
+correctly.
+
+POSSIBLE OVERFITTING PATTERN: Training accuracy keeps increasing, while
+validation accuracy stops improving or decreases. A widening gap can be
+a warning sign.
+
+LOSS GRAPH VERSUS ACCURACY GRAPH: Loss: lower is generally better.
+Accuracy: higher is generally better.
+
+A model can have improving accuracy while loss changes differently,
+because loss also considers the confidence of the predicted
+probabilities.
+
+================================================================================
+CELL 12 — PREDICT ONE TEST IMAGE
+================================================================================
+
+CODE
+
+prediction = model.predict(X_test[:1])
+
+predicted_digit = np.argmax(prediction)
+
+print(“Predicted Digit:”, predicted_digit) print(“Actual Digit:”,
+y_test[0])
+
+LINE-BY-LINE EXPLANATION
+
+1.  X_test[:1]
+
+    WHAT: Selects only the first image from the test dataset.
+
+    WHY: We want to demonstrate prediction on one sample rather than
+    predicting the entire test dataset again.
+
+    The resulting input has shape (1, 784).
+
+2.  prediction = model.predict(X_test[:1])
+
+    WHAT: Sends the selected image through the trained network.
+
+    RESULT: Returns ten output probabilities, one for each digit class.
+
+3.  predicted_digit = np.argmax(prediction)
+
+    WHAT: Finds the index of the largest output probability.
+
+    WHY: That index is the model’s predicted digit.
+
+    Example: If the highest probability belongs to output index 7, the
+    predicted digit is 7.
+
+4.  print(“Predicted Digit:”, predicted_digit)
+
+    Displays the digit predicted by the model.
+
+5.  print(“Actual Digit:”, y_test[0])
+
+    Displays the correct label of the first test image.
+
+    We compare the predicted digit with the actual digit to see whether
+    the prediction is correct.
+
+================================================================================
+MATHEMATICAL FORMULAS — QUICK REVISION
+================================================================================
+
+1.  PIXEL NORMALIZATION
+
+                      x_normalized = x / 255
+
+    Converts pixel values from [0, 255] to [0, 1].
+
+2.  IMAGE FLATTENING
+
+                      28 × 28 = 784
+
+    Converts a 28-by-28 image into 784 input features.
+
+3.  DENSE LAYER
+
+                      z = Wx + b
+
+    x = input vector W = weight matrix b = bias vector z = weighted
+    input before activation
+
+4.  RELU ACTIVATION
+
+                      ReLU(x) = max(0, x)
+
+5.  SOFTMAX ACTIVATION
+
+                               exp(z_i)
+               softmax(z_i) = -----------
+                               sum exp(z_j)
+
+    Converts output scores into class probabilities.
+
+6.  SPARSE CATEGORICAL CROSSENTROPY
+
+                      Loss = -ln(p_correct)
+
+    For one example, p_correct is the predicted probability assigned to
+    the true class.
+
+7.  GRADIENT-DESCENT WEIGHT UPDATE
+
+                      w_new = w_old - alpha × (dL/dw)
+
+    alpha = learning rate L = loss
+
+8.  ACCURACY
+
+                      Correct predictions
+
+    Accuracy = ——————————– × 100 Total predictions
+
+9.  PRECISION
+
+                          TP
+
+    Precision = ——————– TP + FP
+
+10. RECALL
+
+                         TP
+
+    Recall = ——————– TP + FN
+
+11. F1-SCORE
+
+                         2 × Precision × Recall
+
+    F1-score = —————————————– Precision + Recall
+
+================================================================================
+VIVA REVISION — IMPORTANT QUESTIONS
+================================================================================
+
+Q1. What is a Feed-Forward Neural Network? A. A neural network in which
+information moves from input to output through successive layers,
+without feedback connections.
+
+Q2. What is MNIST? A. A dataset of handwritten digits from 0 to 9,
+containing 60,000 training images and 10,000 test images.
+
+Q3. Why do we normalize pixel values? A. To scale pixel values from
+0–255 to 0–1, which helps training.
+
+Q4. Why do we flatten images? A. A Dense layer expects a feature vector.
+Flattening changes each 28 × 28 image into 784 features.
+
+Q5. What is Sequential? A. A Keras model in which layers are arranged
+one after another.
+
+Q6. What is a Dense layer? A. A fully connected layer in which each
+neuron connects to every output from the previous layer.
+
+Q7. Why use 128 hidden neurons? A. It is the selected hidden-layer size
+for this network and provides units that can learn patterns from the
+input features.
+
+Q8. Why use ReLU? A. It introduces non-linearity and is commonly used in
+hidden layers.
+
+Q9. Why are there 10 output neurons? A. There are ten digit classes,
+from 0 to 9.
+
+Q10. Why use Softmax? A. It converts output scores into probabilities
+across the ten classes.
+
+Q11. What does compile() do? A. Configures the optimizer, loss function
+and metrics before training.
+
+Q12. What is SGD? A. Stochastic Gradient Descent, an optimizer that
+updates weights using gradients calculated from mini-batches.
+
+Q13. What is a learning rate? A. A factor that controls the step size of
+weight updates.
+
+Q14. Why use sparse categorical crossentropy? A. The task has multiple
+classes and the target labels are integers.
+
+Q15. What is an epoch? A. One complete pass through the training
+dataset.
+
+Q16. What is batch size? A. The number of training samples processed in
+one mini-batch.
+
+Q17. What is model.evaluate()? A. It calculates the model’s loss and
+configured metrics on supplied data.
+
+Q18. What is a confusion matrix? A. A table comparing actual classes
+with predicted classes.
+
+Q19. What are precision and recall? A. Precision measures the
+correctness of positive predictions. Recall measures how many actual
+positives were found.
+
+Q20. What is history.history? A. A dictionary containing training and
+validation metrics recorded during model.fit().
+
+Q21. What is np.argmax()? A. It returns the index of the maximum value.
+Here, it selects the predicted digit with the highest Softmax
+probability.
+
+Q22. What is overfitting? A. When a model learns the training data too
+closely and performs comparatively worse on unseen data.
+
+================================================================================
+END OF PRACTICAL 2 STUDY GUIDE
+================================================================================
+
+FINAL MEMORY TIP
+
+LOAD DATA -> NORMALIZE -> FLATTEN -> BUILD MODEL -> COMPILE -> TRAIN ->
+EVALUATE -> CONFUSION MATRIX / REPORT -> PLOT -> PREDICT
+
+The six syllabus requirements are covered: (a) Imports (b) Dataset
+loading (c) Network architecture (d) SGD training (e) Evaluation (f)
+Training loss and accuracy plots
